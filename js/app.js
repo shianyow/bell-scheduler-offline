@@ -17,6 +17,17 @@ function ensureI18nKeys() {
   TRANSLATIONS.zh['status.updated'] = TRANSLATIONS.zh['status.updated'] || '📱 已更新最新數據';
   TRANSLATIONS.en['status.updated'] = TRANSLATIONS.en['status.updated'] || '📱 Updated to latest data';
 }
+
+// 綁定 Debug 區塊的捲動事件：若使用者離開底部，則暫停自動捲動
+function initDebugLogScroll() {
+  const entries = document.getElementById('debug-entries');
+  if (!entries) return;
+  entries.addEventListener('scroll', () => {
+    const distanceFromBottom = entries.scrollHeight - entries.scrollTop - entries.clientHeight;
+    // 在底部 8px 以內視為在底部，保持自動捲動；否則暫停
+    debugAutoScroll = distanceFromBottom <= 8;
+  });
+}
 // 主應用程式邏輯 - 核心功能整合
 
 // 全域變數
@@ -28,6 +39,8 @@ let debugLevel = 1; // Debug 級別
 // 定時器
 let minuteTickerInterval = null;
 let autoPlayTimeouts = new Set();
+// Debug 面板自動捲動旗標（使用者若手動往上捲則暫停自動捲動）
+let debugAutoScroll = true;
 
 // i18n 翻譯
 const TRANSLATIONS = {
@@ -147,9 +160,18 @@ function appDebugLog(message, level = 1) {
     while (entries.children.length > 100) {
       entries.removeChild(entries.firstChild);
     }
-
-    entries.scrollTop = entries.scrollHeight;
+    if (debugAutoScroll) scrollDebugToBottom();
   }
+}
+
+// 將 Debug Log 區塊卷動到底部（顯示最新）
+function scrollDebugToBottom() {
+  const entries = document.getElementById('debug-entries');
+  if (!entries) return;
+  // 使用 requestAnimationFrame 確保 DOM 已插入
+  requestAnimationFrame(() => {
+    entries.scrollTop = entries.scrollHeight;
+  });
 }
 
 // 應用課程數據到界面
@@ -410,12 +432,16 @@ async function initApp() {
         debugLevel = level;
         window.OfflineStorage?.setDebugLevel(level);
         appDebugLog(`Debug level set to ${level}`, 0);
+        scrollDebugToBottom();
       });
     }
   }
 
   // 應用翻譯
   applyTranslations();
+
+  // 綁定 Debug 捲動行為
+  initDebugLogScroll();
 
   // 載入本地數據
   let hasData = false;
@@ -466,6 +492,11 @@ function initToolButtons() {
       const isHidden = (debugPanelDiv.style.display === 'none' || !debugPanelDiv.style.display);
       debugPanelDiv.style.display = isHidden ? 'block' : 'none';
       updateToolsButtonText();
+      if (isHidden) {
+        // 打開面板時自動卷到底部
+        debugAutoScroll = true;
+        scrollDebugToBottom();
+      }
     });
   }
 
