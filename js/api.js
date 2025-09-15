@@ -1,7 +1,7 @@
 // API 通信模組 - 與 Google Apps Script 後端通信
 
 // 配置 - 需要設定您的 GAS Web App URL
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyv5poz3QcMS3fhyYagvSI3-914iJ7WRRI_vop8IxjFHWVq1YzUJSSmnjPmfglLQ6ymUg/exec';
 
 // API 狀態管理
 let apiStatus = 'unknown'; // 'online', 'offline', 'error', 'unknown'
