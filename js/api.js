@@ -55,13 +55,24 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
 
   for (let i = 0; i <= maxRetries; i++) {
     try {
+      // 構建 headers：GET 請求不要帶 Content-Type 以避免 CORS 預檢
+      const method = (options.method || 'GET').toUpperCase();
+      const baseHeaders = { 'Accept': 'application/json' };
+      const mergedHeaders = { ...baseHeaders, ...(options.headers || {}) };
+      if (method === 'GET') {
+        delete mergedHeaders['Content-Type'];
+        delete mergedHeaders['content-type'];
+      } else {
+        // 非 GET（例如 POST）才使用 JSON Content-Type（若未指定）
+        if (!('Content-Type' in mergedHeaders) && !('content-type' in mergedHeaders)) {
+          mergedHeaders['Content-Type'] = 'application/json';
+        }
+      }
+
       const response = await fetch(url, {
         ...options,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          ...options.headers
-        }
+        method,
+        headers: mergedHeaders
       });
 
       if (!response.ok) {
