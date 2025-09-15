@@ -225,10 +225,35 @@ body {
   color: #9f9;
 }
 
+/* 簡化 Debug Log 標頭：隱藏文字 'Level'，保留下拉選單供調整等級 */
+#debug-log .debug-header label {
+  display: none !important;
+}
+
+/* Debug level 選擇器採用綠色主題 */
+#debug-level-select {
+  background: #111;
+  color: #9f9;
+  border: 1px solid #333;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+#debug-level-select option {
+  background: #111;
+  color: #9f9;
+}
+
+/* 確保內容文字為舊版風格的綠色 */
+#debug-log #debug-entries {
+  color: #0f0;
+}
+
 #debug-entries {
   padding: 8px;
   font-size: 12px;
   line-height: 1.4;
+  font-weight: bold;
 }
 
 /* 離線狀態指示器 */

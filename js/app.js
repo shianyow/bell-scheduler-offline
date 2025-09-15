@@ -104,8 +104,8 @@ function updateToolsButtonText() {
   }
 }
 
-// Debug 記錄
-function debugLog(message, level = 1) {
+// Debug 記錄（避免與 DOM 變數同名造成遮蔽，命名為 appDebugLog）
+function appDebugLog(message, level = 1) {
   if (level > debugLevel) return;
 
   const now = new Date().toLocaleTimeString();
@@ -133,11 +133,11 @@ function debugLog(message, level = 1) {
 // 應用課程數據到界面
 function applyCourseData(data) {
   if (!data) {
-    debugLog('No course data provided');
+    appDebugLog('No course data provided');
     return;
   }
 
-  debugLog('Applying course data to UI');
+  appDebugLog('Applying course data to UI');
   currentData = data;
 
   // 清空現有鬧鐘
@@ -188,7 +188,7 @@ function applyCourseData(data) {
   sortAlarms();
   renderSchedule();
 
-  debugLog(`Applied ${alarms.length} alarms from course data`);
+  appDebugLog(`Applied ${alarms.length} alarms from course data`);
 }
 
 // 排序鬧鐘
@@ -259,7 +259,7 @@ function renderSchedule() {
     renderedDays++;
   });
 
-  debugLog(`Rendered concise schedule for ${renderedDays} days`);
+  // 已輸出 concise 版本的渲染統計
 }
 
 // 檢查並執行自動敲鐘
@@ -278,7 +278,7 @@ function checkAutoPlay() {
       if (!autoPlayTimeouts.has(alarmKey)) {
         autoPlayTimeouts.add(alarmKey);
 
-        debugLog(`Auto play triggered: ${alarm.time}, count: ${alarm.count}`, 0);
+        appDebugLog(`Auto play triggered: ${alarm.time}, count: ${alarm.count}`, 0);
 
         if (window.AudioModule) {
           window.AudioModule.playBell(alarm.count, 'auto');
@@ -317,7 +317,7 @@ function startMinuteTicker() {
     }
   }, 60000); // 每分鐘檢查一次
 
-  debugLog('Minute ticker started');
+  appDebugLog('Minute ticker started');
 }
 
 // 刪除過期的鬧鐘
@@ -329,13 +329,13 @@ function deletePastAlarms() {
 
   const deletedCount = beforeCount - alarms.length;
   if (deletedCount > 0) {
-    debugLog(`Deleted ${deletedCount} past alarms`);
+    appDebugLog(`Deleted ${deletedCount} past alarms`);
   }
 }
 
 // 初始化應用程式
 async function initApp() {
-  debugLog('Initializing application...');
+  appDebugLog('Initializing application...');
 
   // 載入用戶設定
   if (window.OfflineStorage) {
@@ -350,7 +350,7 @@ async function initApp() {
         const level = parseInt(e.target.value) || 1;
         debugLevel = level;
         window.OfflineStorage?.setDebugLevel(level);
-        debugLog(`Debug level set to ${level}`, 0);
+        appDebugLog(`Debug level set to ${level}`, 0);
       });
     }
   }
@@ -393,19 +393,19 @@ async function initApp() {
     }, 3000);
   }
 
-  debugLog('Application initialized successfully');
+  appDebugLog('Application initialized successfully');
 }
 
 // 初始化工具按鈕
 function initToolButtons() {
   // Debug Log 切換按鈕
   const toolsBtn = document.getElementById('tools-btn');
-  const debugLog = document.getElementById('debug-log');
+  const debugPanelDiv = document.getElementById('debug-log');
 
-  if (toolsBtn && debugLog) {
+  if (toolsBtn && debugPanelDiv) {
     toolsBtn.addEventListener('click', () => {
-      const isHidden = (debugLog.style.display === 'none' || !debugLog.style.display);
-      debugLog.style.display = isHidden ? 'block' : 'none';
+      const isHidden = (debugPanelDiv.style.display === 'none' || !debugPanelDiv.style.display);
+      debugPanelDiv.style.display = isHidden ? 'block' : 'none';
       updateToolsButtonText();
     });
   }
@@ -418,7 +418,7 @@ function initToolButtons() {
       const newLang = currentLang === 'zh' ? 'en' : 'zh';
       window.OfflineStorage.setLanguage(newLang);
       applyTranslations();
-      debugLog(`Language switched to ${newLang}`);
+      appDebugLog(`Language switched to ${newLang}`);
     });
   }
 }
@@ -430,7 +430,7 @@ window.AppModule = {
   renderSchedule,
   t,
   applyTranslations,
-  debugLog,
+  debugLog: appDebugLog,
 
   // 狀態查詢
   get currentData() { return currentData; },
@@ -440,6 +440,8 @@ window.AppModule = {
 
 // 使翻譯函數全域可用
 window.t = t;
+// 也導出全域 appDebugLog，避免其他模組需直接呼叫
+window.appDebugLog = appDebugLog;
 
 // DOM 載入完成後初始化
 if (document.readyState === 'loading') {

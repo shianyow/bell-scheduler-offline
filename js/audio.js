@@ -152,6 +152,7 @@ function playSingleAlarm(current, total) {
 
       src.start(t0 + 0.01);
       console.log(`[Audio] Bell played (WebAudio): ${current}/${total} vol=${vol}`);
+      try { if (window.appDebugLog) window.appDebugLog(`[Audio] Bell played (WebAudio): ${current}/${total} vol=${vol}`, 2); } catch (e) {}
       return;
     } catch (e) {
       console.error('[Audio] WebAudio play error:', e);
@@ -182,6 +183,7 @@ function playSingleAlarm(current, total) {
     }
 
     console.log(`[Audio] Bell played (HTMLAudio): ${current}/${total}`);
+    try { if (window.appDebugLog) window.appDebugLog(`[Audio] Bell played (HTMLAudio): ${current}/${total}`, 2); } catch (e) {}
   } catch (e) {
     console.error('[Audio] HTML Audio error:', e);
   }
@@ -208,6 +210,7 @@ function stopAllAlarms() {
   activeSources.clear();
 
   console.log('[Audio] All alarms stopped');
+  try { if (window.appDebugLog) window.appDebugLog('[Audio] All alarms stopped'); } catch (e) {}
 }
 
 // 播放鐘聲（指定次數）
@@ -231,8 +234,9 @@ async function playBell(times, trigger = 'manual') {
   let count = 0;
   const strikeIntervalMs = 11000; // 每聲間隔 11 秒
 
-  // 記錄播放
+  // 記錄播放（UI 與 Debug）
   logBellPlay(trigger, times);
+  try { if (window.appDebugLog) window.appDebugLog(`[Bell] ${trigger} play x${times}`); } catch (e) {}
 
   function playNext() {
     if (!isAlarmPlaying) return;
@@ -252,6 +256,7 @@ async function playBell(times, trigger = 'manual') {
       setTimeout(() => {
         updatePlayButton(false);
         isAlarmPlaying = false;
+        try { if (window.appDebugLog) window.appDebugLog('[Bell] sequence finished', 2); } catch (e) {}
       }, 1000); // 最後一聲後等待 1 秒
     }
   }
@@ -278,7 +283,7 @@ function updatePlayButton(playing) {
 // 記錄鐘聲播放
 function logBellPlay(type, times) {
   const logDiv = document.getElementById('bell-log');
-  if (!logDiv || !logDiv.style.display || logDiv.style.display === 'none') return;
+  if (!logDiv) return;
 
   const now = new Date();
   const nowStr = now.toLocaleTimeString();
@@ -290,12 +295,14 @@ function logBellPlay(type, times) {
 
   const entries = document.getElementById('bell-entries');
   if (entries) {
-    entries.appendChild(entry);
-    entries.scrollTop = entries.scrollHeight;
+    // 新的放最上面
+    entries.insertBefore(entry, entries.firstChild);
+    // 保持滾動在頂端以顯示最新
+    entries.scrollTop = 0;
 
-    // 限制日誌條目數量
+    // 限制日誌條目數量（刪除最舊的在底部）
     while (entries.children.length > 50) {
-      entries.removeChild(entries.firstChild);
+      entries.removeChild(entries.lastChild);
     }
   }
 }
@@ -310,8 +317,8 @@ function initAudioModule() {
         stopAllAlarms();
         updatePlayButton(false);
       } else {
-        // 手動播放，默認敲鐘次數為 1
-        await playBell(1, 'manual');
+        // 手動播放，默認敲鐘次數為 4（與舊版一致）
+        await playBell(4, 'manual');
       }
     });
   }
