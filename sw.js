@@ -1,7 +1,7 @@
 // Service Worker - 離線功能支援
 
-const CACHE_NAME = 'bell-scheduler-v1.0.1';
-const DATA_CACHE_NAME = 'bell-scheduler-data-v1.0.1';
+const CACHE_NAME = 'bell-scheduler-v1.0.2';
+const DATA_CACHE_NAME = 'bell-scheduler-data-v1.0.2';
 
 // 需要快取的核心檔案
 const CORE_FILES = [
@@ -75,6 +75,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // 導航/HTML 請求使用網路優先，避免一般 Reload 仍拿舊快取
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(handleDocumentRequest(request));
+    return;
+  }
+
   // Google Apps Script API 請求的特殊處理
   if (isGASApiRequest(url)) {
     event.respondWith(handleGASApiRequest(request));
@@ -125,7 +131,8 @@ async function handleGASApiRequest(request) {
     console.warn('[SW] GAS API network request failed:', error);
 
     // 網路失敗時嘗試從快取回應
-    const cachedResponse = await caches.match(request);
+    const dataCache = await caches.open(DATA_CACHE_NAME);
+    const cachedResponse = await dataCache.match(request);
     if (cachedResponse) {
       console.log('[SW] Serving cached GAS API response');
       return cachedResponse;
@@ -150,31 +157,40 @@ async function handleGASApiRequest(request) {
 // 處理靜態資源請求（快取優先）
 async function handleStaticAssetRequest(request) {
   try {
-    // 優先從快取獲取
-    const cachedResponse = await caches.match(request);
+    const cache = await caches.open(CACHE_NAME);
 
+    // 對 JS/CSS 採用 stale-while-revalidate：先回快取，背景更新
+    if (request.destination === 'script' || request.destination === 'style' || request.destination === 'worker') {
+      const cached = await cache.match(request);
+      const fetchPromise = fetch(request).then(networkResponse => {
+        if (networkResponse && networkResponse.ok) {
+          cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+      }).catch(() => null);
+
+      return cached || fetchPromise || new Response('Network error', { status: 408 });
+    }
+
+    // 其他靜態資源維持快取優先
+    const cachedResponse = await cache.match(request);
     if (cachedResponse) {
       console.log('[SW] Serving cached asset:', request.url);
       return cachedResponse;
     }
 
-    // 快取中沒有則從網路獲取
-    console.log('[SW] Fetching asset from network:', request.url);
     const networkResponse = await fetch(request);
-
     if (networkResponse.ok) {
-      // 快取新獲取的資源
-      const cache = await caches.open(CACHE_NAME);
       cache.put(request, networkResponse.clone());
     }
-
     return networkResponse;
   } catch (error) {
     console.error('[SW] Failed to handle static asset request:', error);
 
     // 如果是 HTML 頁面請求且失敗，回傳主頁面
     if (request.destination === 'document') {
-      const cachedIndex = await caches.match('index.html');
+      const cache = await caches.open(CACHE_NAME);
+      const cachedIndex = await cache.match('index.html');
       if (cachedIndex) {
         return cachedIndex;
       }
@@ -196,7 +212,8 @@ async function handleOtherRequest(request) {
     console.warn('[SW] Other request failed:', error);
 
     // 檢查是否有快取的回應
-    const cachedResponse = await caches.match(request);
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(request);
     if (cachedResponse) {
       return cachedResponse;
     }
