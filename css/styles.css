@@ -225,6 +225,11 @@ body {
   color: #9f9;
 }
 
+/* 標題加粗 */
+#debug-log .debug-header #debug-title {
+  font-weight: bold;
+}
+
 /* 簡化 Debug Log 標頭：隱藏文字 'Level'，保留下拉選單供調整等級 */
 #debug-log .debug-header label {
   display: none !important;
@@ -253,7 +258,7 @@ body {
   padding: 8px;
   font-size: 12px;
   line-height: 1.4;
-  font-weight: bold;
+  font-weight: normal;
 }
 
 /* 離線狀態指示器 */
