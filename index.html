@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dhamma Gong - 離線敲鐘系統</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- PWA Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Theme -->
+  <meta name="theme-color" content="#707070">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- 應用程式容器 -->
+  <div class="container">
+
+    <!-- 狀態列 + 控制按鈕 -->
+    <div class="status-row">
+      <div id="status" class="status loading">🔄 初始化中...</div>
+      <div class="spacer"></div>
+      <button id="sync-btn" class="tool-btn">🔄 同步數據</button>
+      <button id="tools-btn" class="tool-btn" data-i18n-title="tools.show_debug">⚙️</button>
+      <button id="lang-btn" class="tool-btn" data-i18n-title="tools.lang_toggle">🌐</button>
+    </div>
+
+    <!-- 主要播放按鈕 -->
+    <button id="play-button" class="play-button">
+      <span class="play-text" data-i18n="play_button.play" data-i18n-html="1">點此手動敲鐘<br />▶️</span>
+    </button>
+
+    <!-- 音訊解鎖提示 -->
+    <div id="audio-unlock-banner" class="status error" style="display: none;">
+      <span data-i18n="audio.unlock_prompt">請點擊畫面以啟用鐘聲🔓</span>
+    </div>
+
+    <!-- 課程排程顯示 -->
+    <div id="schedule-container">
+      <div id="schedule-list"></div>
+    </div>
+
+    <!-- 鐘聲播放記錄 -->
+    <div id="bell-log" style="display: none;">
+      <h3>鐘聲記錄</h3>
+      <div id="bell-entries"></div>
+    </div>
+
+    <!-- Debug 記錄 -->
+    <div id="debug-log" style="display: none;">
+      <div class="debug-header">
+        <span id="debug-title" data-i18n="debug.title">Debug Log</span>
+        <div class="spacer"></div>
+        <label for="debug-level-select">Level:</label>
+        <select id="debug-level-select">
+          <option value="0" data-i18n="debug.level.0">0 關閉</option>
+          <option value="1" data-i18n="debug.level.1">1 一般</option>
+          <option value="2" data-i18n="debug.level.2">2 詳細</option>
+        </select>
+      </div>
+      <div id="debug-entries"></div>
+    </div>
+
+  </div>
+
+  <!-- 離線狀態指示 -->
+  <div id="offline-indicator" class="offline-indicator" style="display: none;">
+    🔴 離線模式
+  </div>
+
+  <!-- JavaScript 模組 -->
+  <script src="js/audio.js"></script>
+  <script src="js/offline.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- Service Worker 註冊 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(registration => {
+            console.log('[SW] 註冊成功:', registration.scope);
+          })
+          .catch(error => {
+            console.log('[SW] 註冊失敗:', error);
+          });
+      });
+    }
+  </script>
+</body>
+</html>
