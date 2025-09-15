@@ -23,6 +23,16 @@ function ensureI18nKeys() {
   TRANSLATIONS.en['btn.show_less_days'] = TRANSLATIONS.en['btn.show_less_days'] || 'Show fewer days';
 }
 
+// 監聽音訊解鎖事件，若有待播放的自動鐘聲，立即播放一次
+window.addEventListener('audio_unlocked', () => {
+  try { window.appDebugLog && window.appDebugLog('[Audio] Unlocked; checking pending auto play...', 2); } catch (e) {}
+  if (pendingAutoPlay && window.AudioModule?.isUnlocked) {
+    const { count } = pendingAutoPlay;
+    pendingAutoPlay = null;
+    try { window.AudioModule.playBell(count, 'auto'); } catch (e) {}
+  }
+});
+
 // 綁定 Debug 區塊的捲動事件：若使用者離開底部，則暫停自動捲動
 function initDebugLogScroll() {
   const entries = document.getElementById('debug-entries');
@@ -48,6 +58,8 @@ let autoPlayTimeouts = new Set();
 let debugAutoScroll = true;
 // 是否顯示全部未來日期（預設僅 30 天）
 let showAllDates = false;
+// 待播放的自動敲鐘（因裝置未解鎖而延後）
+let pendingAutoPlay = null; // { count: number }
 
 // i18n 翻譯
 const TRANSLATIONS = {
@@ -392,7 +404,14 @@ function checkAutoPlay() {
         appDebugLog(`Auto play triggered: ${alarm.time}, count: ${alarm.count}`, 0);
 
         if (window.AudioModule) {
-          window.AudioModule.playBell(alarm.count, 'auto');
+          // 若音訊尚未解鎖，記錄待播放，提示解鎖
+          if (!window.AudioModule.isUnlocked) {
+            pendingAutoPlay = { count: alarm.count };
+            try { window.appDebugLog && window.appDebugLog('[Audio] Locked on auto; waiting for unlock...'); } catch (e) {}
+            try { window.AudioModule.ensureAudioUnlocked(); } catch (e) {}
+          } else {
+            window.AudioModule.playBell(alarm.count, 'auto');
+          }
         }
 
         // 1小時後清除記錄

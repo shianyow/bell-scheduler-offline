@@ -23,6 +23,10 @@ function showAudioUnlockMsg() {
   const banner = document.getElementById('audio-unlock-banner');
   if (banner) {
     banner.style.display = 'block';
+    // 允許點擊提示橫幅也嘗試解鎖
+    banner.onclick = () => {
+      try { unlockAudio(); } catch (e) {}
+    };
   }
 }
 
@@ -83,14 +87,21 @@ async function unlockAudio() {
       audioUnlocked = true;
       hideAudioUnlockMsg();
       console.log('[Audio] Audio unlocked successfully');
+      // 廣播通知其他模組（例如 app.js）
+      try {
+        const evt = new CustomEvent('audio_unlocked');
+        self.dispatchEvent ? self.dispatchEvent(evt) : window.dispatchEvent(evt);
+      } catch (_) {
+        try { window.dispatchEvent(new Event('audio_unlocked')); } catch (e) {}
+      }
     }
   } catch (e) {
     console.error('[Audio] Failed to unlock audio:', e);
   }
 }
 
-// 等待音頻解鎖
-async function ensureAudioUnlocked(timeoutMs = 1200) {
+// 等待音頻解鎖（iOS 可能需要較久以載入/解碼音檔）
+async function ensureAudioUnlocked(timeoutMs = 5000) {
   if (audioUnlocked) return true;
 
   try {
@@ -105,6 +116,7 @@ async function ensureAudioUnlocked(timeoutMs = 1200) {
   }
 
   if (!audioUnlocked) {
+    try { if (window.appDebugLog) window.appDebugLog('[Audio] Unlock not ready within timeout; showing banner'); } catch (e) {}
     showAudioUnlockMsg();
   }
 
@@ -359,6 +371,8 @@ window.AudioModule = {
   initAudioModule,
   unlockAudio,
   ensureAudioUnlocked,
+  // 對外提供立即顯示提示的方法
+  requestUnlockPrompt: () => { try { showAudioUnlockMsg(); } catch (e) {} },
   playBell,
   stopAllAlarms,
   updatePlayButton,
@@ -368,6 +382,15 @@ window.AudioModule = {
   get isPlaying() { return isAlarmPlaying; },
   get isUnlocked() { return audioUnlocked; }
 };
+
+// 提供即時的 isUnlocked 屬性（getter），供其他模組查詢目前解鎖狀態
+try {
+  Object.defineProperty(window.AudioModule, 'isUnlocked', {
+    configurable: false,
+    enumerable: true,
+    get() { return audioUnlocked; }
+  });
+} catch (_) {}
 
 // DOM 載入完成後自動初始化
 if (document.readyState === 'loading') {
