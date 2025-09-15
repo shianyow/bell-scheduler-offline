@@ -588,10 +588,10 @@ async function initApp() {
   // 綁定 Debug 捲動行為
   initDebugLogScroll();
 
-  // iOS 裝置上若音訊尚未解鎖，先主動顯示提示（避免使用者錯過）
+  // 若音訊尚未解鎖，先主動顯示提示（所有裝置，同一機制）
   try {
-    if (isIOS() && window.AudioModule && !window.AudioModule.isUnlocked) {
-      appDebugLog('[Audio] iOS detected; showing unlock banner proactively', 2);
+    if (window.AudioModule && !window.AudioModule.isUnlocked) {
+      appDebugLog('[Audio] Showing unlock banner proactively', 2);
       window.AudioModule.requestUnlockPrompt && window.AudioModule.requestUnlockPrompt();
     }
   } catch (_) {}
