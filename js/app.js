@@ -21,6 +21,10 @@ function ensureI18nKeys() {
   TRANSLATIONS.en['btn.show_more_days'] = TRANSLATIONS.en['btn.show_more_days'] || 'Show more days';
   TRANSLATIONS.zh['btn.show_less_days'] = TRANSLATIONS.zh['btn.show_less_days'] || '顯示較少日期';
   TRANSLATIONS.en['btn.show_less_days'] = TRANSLATIONS.en['btn.show_less_days'] || 'Show fewer days';
+  TRANSLATIONS.zh['label.version'] = TRANSLATIONS.zh['label.version'] || '版本';
+  TRANSLATIONS.en['label.version'] = TRANSLATIONS.en['label.version'] || 'Version';
+  TRANSLATIONS.zh['label.data_version'] = TRANSLATIONS.zh['label.data_version'] || '數據版本';
+  TRANSLATIONS.en['label.data_version'] = TRANSLATIONS.en['label.data_version'] || 'Data';
 }
 
 // 監聽音訊解鎖事件，若有待播放的自動鐘聲，立即播放一次
@@ -152,6 +156,28 @@ function applyTranslations() {
   updateToolsButtonText();
 }
 
+// 更新版本徽章：App 版本與數據版本
+function updateVersionBadges() {
+  // App 版本（已在 init 時請求 SW，這裡不重複）
+  const appVerEl = document.getElementById('app-version');
+  if (appVerEl && !appVerEl.textContent) {
+    appVerEl.textContent = 'dev';
+  }
+
+  // Data 版本：使用 currentData.generatedAt 或 OfflineStorage 的更新時間
+  const dataVerEl = document.getElementById('data-version');
+  if (dataVerEl) {
+    dataVerEl.title = t('label.data_version');
+    let text = '';
+    if (currentData && currentData.generatedAt) {
+      text = currentData.generatedAt;
+    } else if (window.OfflineStorage?.getLastUpdateTime) {
+      text = window.OfflineStorage.getLastUpdateTime() || '';
+    }
+    dataVerEl.textContent = text;
+  }
+}
+
 // 更新工具按鈕文字
 function updateToolsButtonText() {
   const toolsBtn = document.getElementById('tools-btn');
@@ -206,6 +232,8 @@ function applyCourseData(data) {
   }
 
   appDebugLog('Applying course data to UI');
+  // 更新數據版本徽章
+  try { updateVersionBadges(); } catch (_) {}
   currentData = data;
 
   // 清空現有鬧鐘
@@ -538,6 +566,26 @@ async function initApp() {
 
   // 應用翻譯
   applyTranslations();
+
+  // 顯示版本資訊（從 SW 回報或使用後備）
+  try {
+    const verEl = document.getElementById('app-version');
+    if (verEl) {
+      verEl.title = t('label.version');
+      // 向 SW 詢問版本
+      if (navigator.serviceWorker?.controller) {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (event) => {
+          if (event.data?.type === 'VERSION' && event.data?.version) {
+            verEl.textContent = event.data.version.replace('bell-scheduler-', '');
+          }
+        };
+        navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+      } else {
+        verEl.textContent = 'dev';
+      }
+    }
+  } catch (_) {}
 
   // 綁定 Debug 捲動行為
   initDebugLogScroll();
