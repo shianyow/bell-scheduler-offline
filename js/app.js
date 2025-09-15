@@ -1,3 +1,22 @@
+// i18n 鍵補齊函式，於 TRANSLATIONS 宣告後呼叫
+function ensureI18nKeys() {
+  TRANSLATIONS.zh['label.today'] = TRANSLATIONS.zh['label.today'] || '今日';
+  TRANSLATIONS.en['label.today'] = TRANSLATIONS.en['label.today'] || 'Today';
+  TRANSLATIONS.zh['log.title'] = TRANSLATIONS.zh['log.title'] || '鐘聲記錄';
+  TRANSLATIONS.en['log.title'] = TRANSLATIONS.en['log.title'] || 'Bell Log';
+  TRANSLATIONS.zh['btn.sync'] = TRANSLATIONS.zh['btn.sync'] || '同步數據';
+  TRANSLATIONS.en['btn.sync'] = TRANSLATIONS.en['btn.sync'] || 'Sync Data';
+  TRANSLATIONS.zh['btn.syncing'] = TRANSLATIONS.zh['btn.syncing'] || '同步中...';
+  TRANSLATIONS.en['btn.syncing'] = TRANSLATIONS.en['btn.syncing'] || 'Syncing...';
+  TRANSLATIONS.zh['status.no_network'] = TRANSLATIONS.zh['status.no_network'] || '❌ 無網路連接，無法同步';
+  TRANSLATIONS.en['status.no_network'] = TRANSLATIONS.en['status.no_network'] || '❌ No network connection';
+  TRANSLATIONS.zh['status.syncing'] = TRANSLATIONS.zh['status.syncing'] || '🔄 正在同步數據...';
+  TRANSLATIONS.en['status.syncing'] = TRANSLATIONS.en['status.syncing'] || '🔄 Syncing data...';
+  TRANSLATIONS.zh['status.sync_done'] = TRANSLATIONS.zh['status.sync_done'] || '✅ 數據同步完成';
+  TRANSLATIONS.en['status.sync_done'] = TRANSLATIONS.en['status.sync_done'] || '✅ Data synced';
+  TRANSLATIONS.zh['status.updated'] = TRANSLATIONS.zh['status.updated'] || '📱 已更新最新數據';
+  TRANSLATIONS.en['status.updated'] = TRANSLATIONS.en['status.updated'] || '📱 Updated to latest data';
+}
 // 主應用程式邏輯 - 核心功能整合
 
 // 全域變數
@@ -57,6 +76,9 @@ const TRANSLATIONS = {
     'log.played': 'Gong played'
   }
 };
+
+// 在宣告 TRANSLATIONS 之後補齊缺少的鍵
+try { if (typeof ensureI18nKeys === 'function') ensureI18nKeys(); } catch (_) {}
 
 // 翻譯函數
 function t(key) {
@@ -247,7 +269,7 @@ function renderSchedule() {
 
     // 標題
     const h = document.createElement('h3');
-    h.textContent = `${date}${date === today ? ' (今日)' : ''}`;
+    h.textContent = `${date}${date === today ? ' (' + t('label.today') + ')' : ''}`;
     block.appendChild(h);
 
     // 單行時間列表（像原本簡潔版）："🔔 HH:MM, HH:MM, ..."

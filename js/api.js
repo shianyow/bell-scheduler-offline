@@ -29,23 +29,25 @@ function updateNetworkStatus() {
   const syncBtn = document.getElementById('sync-btn');
 
   if (indicator) {
+    const tfn = (window.t || ((k) => k));
     if (isOnline && apiStatus === 'online') {
-      indicator.textContent = '🟢 線上模式';
+      indicator.textContent = tfn('status.online_mode') || '🟢 Online Mode';
       indicator.className = 'offline-indicator online';
       indicator.style.display = 'block';
       setTimeout(() => {
         indicator.style.display = 'none';
-      }, 3000); // 3秒後隱藏
+      }, 3000);
     } else if (!isOnline || apiStatus === 'offline') {
-      indicator.textContent = '🔴 離線模式';
+      indicator.textContent = tfn('status.offline_mode') || '🔴 Offline Mode';
       indicator.className = 'offline-indicator';
       indicator.style.display = 'block';
     }
   }
 
   if (syncBtn) {
+    const tfn = (window.t || ((k) => k));
     syncBtn.disabled = !isOnline;
-    syncBtn.textContent = isOnline ? '🔄 同步數據' : '📡 無網路';
+    syncBtn.textContent = isOnline ? `🔄 ${tfn('btn.sync') || 'Sync Data'}` : `📡 ${tfn('status.no_network') || 'No network'}`;
   }
 }
 
@@ -173,19 +175,21 @@ async function syncData() {
   const statusDiv = document.getElementById('status');
 
   if (!isOnline) {
-    showStatus('❌ 無網路連接，無法同步', 'error');
+    const tfn = (window.t || ((k) => k));
+    showStatus(tfn('status.no_network') || '❌ No network connection', 'error');
     return false;
   }
 
   try {
     // 更新同步按鈕狀態
     if (syncBtn) {
+      const tfn = (window.t || ((k) => k));
       syncBtn.classList.add('syncing');
-      syncBtn.textContent = '🔄 同步中...';
+      syncBtn.textContent = `🔄 ${tfn('btn.syncing') || 'Syncing...'}`;
       syncBtn.disabled = true;
     }
 
-    showStatus('🔄 正在同步數據...', 'loading');
+    showStatus((window.t ? window.t('status.syncing') : '🔄 Syncing data...') || '🔄 Syncing data...', 'loading');
 
     // 獲取最新數據
     const courseData = await fetchCourseData();
@@ -200,7 +204,7 @@ async function syncData() {
       window.AppModule.applyCourseData(courseData);
     }
 
-    showStatus('✅ 數據同步完成', 'success');
+    showStatus((window.t ? window.t('status.sync_done') : '✅ Data synced') || '✅ Data synced', 'success');
     updateNetworkStatus();
 
     return true;
@@ -234,7 +238,7 @@ async function backgroundDataCheck() {
       }
 
       // 可選：通知用戶有新數據
-      showStatus('📱 已更新最新數據', 'success');
+      showStatus((window.t ? window.t('status.updated') : '📱 Updated to latest data') || '📱 Updated to latest data', 'success');
 
       // 重新渲染界面
       if (window.AppModule && window.AppModule.applyCourseData) {

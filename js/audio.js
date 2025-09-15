@@ -286,12 +286,13 @@ function logBellPlay(type, times) {
   if (!logDiv) return;
 
   const now = new Date();
-  const nowStr = now.toLocaleTimeString();
+  const nowStr = `[${now.toLocaleTimeString()}]`;
   const typeKey = (type === 'manual' || type === '手動') ? 'manual' : 'auto';
   const typeText = window.t ? window.t(`log.type.${typeKey}`) : typeKey;
 
   const entry = document.createElement('div');
-  entry.innerHTML = `${nowStr} - ${typeText}${window.t ? window.t('log.played') : '敲鐘'} ${times} 次`;
+  const playedText = window.t ? window.t('log.played') : 'Gong played';
+  entry.textContent = `${nowStr} ${typeText} ${playedText} x${times}`;
 
   const entries = document.getElementById('bell-entries');
   if (entries) {
