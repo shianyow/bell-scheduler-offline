@@ -306,18 +306,55 @@ function startMinuteTicker() {
     clearInterval(minuteTickerInterval);
   }
 
+  // 去重 key："YYYY-MM-DD HH:MM"
+  window.__lastAutoFireKey = window.__lastAutoFireKey || '';
+  window.__midnightCleanupFor = window.__midnightCleanupFor || '';
+
   minuteTickerInterval = setInterval(() => {
-    checkAutoPlay();
+    const t = new Date();
+    const sec = t.getSeconds();
 
-    // 每天 00:00 清理過期鬧鐘
-    const now = new Date();
-    if (now.getHours() === 0 && now.getMinutes() === 0) {
-      deletePastAlarms();
-      renderSchedule();
+    // 僅在每分鐘的前 0~5 秒內檢查與觸發，避免 setInterval 漂移造成錯過整點
+    if (sec > 5) return;
+
+    const currentDate = formatDate(t);
+    const currentTime = formatTime(t); // HH:MM
+    const currentKey = `${currentDate} ${currentTime}`;
+
+    // 每分鐘頭 0~1 秒輸出 tick（verbose），避免洗版
+    if (sec <= 1) {
+      const hasMatch = !!alarms.find(a => a.date === currentDate && a.time === currentTime);
+      appDebugLog(`[tick] now=${currentKey} (sec=${sec}), hasMatch=${hasMatch}`, 2);
     }
-  }, 60000); // 每分鐘檢查一次
 
-  appDebugLog('Minute ticker started');
+    // 自動觸發（去重）
+    if (window.__lastAutoFireKey !== currentKey) {
+      const match = alarms.find(a => a.date === currentDate && a.time === currentTime);
+      if (match) {
+        window.__lastAutoFireKey = currentKey;
+        const repeat = Number(match.count || 1) || 1;
+        appDebugLog(`自動播放鐘聲: repeat=${repeat}`);
+        if (window.AudioModule) {
+          window.AudioModule.playBell(repeat, 'auto');
+        }
+      }
+    }
+
+    // 每日 00:00 視窗內做一次清理與重繪
+    if (t.getHours() === 0 && t.getMinutes() === 0) {
+      if (window.__midnightCleanupFor !== currentDate) {
+        try {
+          appDebugLog('[midnight] running: deletePastAlarms + refresh', 2);
+          deletePastAlarms();
+          renderSchedule();
+        } finally {
+          window.__midnightCleanupFor = currentDate;
+        }
+      }
+    }
+  }, 1000);
+
+  appDebugLog('Minute ticker started (1s interval, 0-5s window)');
 }
 
 // 刪除過期的鬧鐘
