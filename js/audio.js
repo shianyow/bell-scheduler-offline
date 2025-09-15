@@ -189,6 +189,9 @@ function playSingleAlarm(current, total) {
   }
 }
 
+// 用來追蹤手動播放流程中所建立的計時器，便於中途停止時清除
+const pendingTimers = new Set();
+
 // 停止所有鐘聲播放
 function stopAllAlarms() {
   isAlarmPlaying = false;
@@ -209,6 +212,12 @@ function stopAllAlarms() {
   });
   activeSources.clear();
 
+  // 清掉所有尚未執行的 setTimeout，避免快速開關造成殘留排程
+  pendingTimers.forEach((id) => {
+    try { clearTimeout(id); } catch (e) {}
+  });
+  pendingTimers.clear();
+
   console.log('[Audio] All alarms stopped');
   try { if (window.appDebugLog) window.appDebugLog('[Audio] All alarms stopped'); } catch (e) {}
 }
@@ -220,6 +229,9 @@ async function playBell(times, trigger = 'manual') {
   // 先確保已解鎖
   const ok = await ensureAudioUnlocked();
   if (!ok) return;
+
+  // 在開始新的序列前，確保沒有殘留的計時器/音源
+  stopAllAlarms();
 
   // 嘗試恢復被暫停的 AudioContext
   if (audioCtx && audioCtx.state === 'suspended') {
@@ -251,13 +263,15 @@ async function playBell(times, trigger = 'manual') {
     count++;
 
     if (count < times) {
-      setTimeout(playNext, strikeIntervalMs);
+      const id = setTimeout(playNext, strikeIntervalMs);
+      pendingTimers.add(id);
     } else {
-      setTimeout(() => {
+      const id = setTimeout(() => {
         updatePlayButton(false);
         isAlarmPlaying = false;
         try { if (window.appDebugLog) window.appDebugLog('[Bell] sequence finished', 2); } catch (e) {}
       }, 1000); // 最後一聲後等待 1 秒
+      pendingTimers.add(id);
     }
   }
 
