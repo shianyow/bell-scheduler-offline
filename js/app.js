@@ -221,54 +221,45 @@ function renderSchedule() {
   }
 
   const today = formatDate(new Date());
-  const groupedAlarms = {};
+  const dateToTimes = new Map(); // date -> Set(times)
 
-  // 按日期分組
-  alarms.forEach(alarm => {
-    if (!groupedAlarms[alarm.date]) {
-      groupedAlarms[alarm.date] = [];
-    }
-    groupedAlarms[alarm.date].push(alarm);
+  // 收集每日期間（去重、排序）
+  alarms.forEach(a => {
+    if (!dateToTimes.has(a.date)) dateToTimes.set(a.date, new Set());
+    dateToTimes.get(a.date).add(a.time);
   });
 
-  // 只顯示今天和未來 7 天
+  // 僅顯示今天與未來 7 天
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + 7);
   const maxDateStr = formatDate(maxDate);
 
-  Object.entries(groupedAlarms).forEach(([date, dayAlarms]) => {
+  // 依日期排序後渲染
+  const allDates = Array.from(dateToTimes.keys()).sort();
+  let renderedDays = 0;
+  allDates.forEach(date => {
     if (date < today || date > maxDateStr) return;
 
-    const dateBlock = document.createElement('div');
-    dateBlock.className = `date-block ${date === today ? 'today' : ''}`;
+    const times = Array.from(dateToTimes.get(date)).sort((a, b) => a.localeCompare(b));
 
-    const title = document.createElement('h3');
-    title.textContent = `${date} ${date === today ? '(今日)' : ''}`;
-    dateBlock.appendChild(title);
+    const block = document.createElement('div');
+    block.className = `date-block ${date === today ? 'today' : ''}`;
 
-    dayAlarms.forEach(alarm => {
-      const alarmDiv = document.createElement('div');
-      alarmDiv.className = 'alarm-item';
+    // 標題
+    const h = document.createElement('h3');
+    h.textContent = `${date}${date === today ? ' (今日)' : ''}`;
+    block.appendChild(h);
 
-      const now = new Date();
-      const alarmTime = new Date(`${alarm.date} ${alarm.time}`);
-      const isPast = alarmTime < now;
+    // 單行時間列表（像原本簡潔版）："🔔 HH:MM, HH:MM, ..."
+    const p = document.createElement('p');
+    p.textContent = `🔔 ${times.join(', ')}`;
+    block.appendChild(p);
 
-      alarmDiv.innerHTML = `
-        <span class="alarm-time">${alarm.time}</span>
-        <span class="alarm-info">${alarm.courseType} - 敲鐘 ${alarm.count} 次</span>
-        <span class="alarm-status ${isPast ? 'completed' : 'upcoming'}">
-          ${isPast ? '已完成' : '待執行'}
-        </span>
-      `;
-
-      dateBlock.appendChild(alarmDiv);
-    });
-
-    container.appendChild(dateBlock);
+    container.appendChild(block);
+    renderedDays++;
   });
 
-  debugLog(`Rendered schedule for ${Object.keys(groupedAlarms).length} days`);
+  debugLog(`Rendered concise schedule for ${renderedDays} days`);
 }
 
 // 檢查並執行自動敲鐘

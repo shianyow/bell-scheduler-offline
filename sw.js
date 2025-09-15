@@ -1,19 +1,22 @@
 // Service Worker - 離線功能支援
 
-const CACHE_NAME = 'bell-scheduler-v1.0.0';
-const DATA_CACHE_NAME = 'bell-scheduler-data-v1.0.0';
+const CACHE_NAME = 'bell-scheduler-v1.0.1';
+const DATA_CACHE_NAME = 'bell-scheduler-data-v1.0.1';
 
 // 需要快取的核心檔案
 const CORE_FILES = [
-  '/',
-  '/index.html',
-  '/css/styles.css',
-  '/js/app.js',
-  '/js/audio.js',
-  '/js/api.js',
-  '/js/offline.js',
-  '/audio/bell.mp3',
-  '/manifest.json'
+  './',
+  'index.html',
+  'css/styles.css',
+  'js/app.js',
+  'js/audio.js',
+  'js/api.js',
+  'js/offline.js',
+  'audio/bell.mp3',
+  'manifest.json',
+  // 常用 icons，避免安裝後離線載入不到
+  'icons/icon-192.png',
+  'icons/icon-512.png'
 ];
 
 // 安裝事件 - 快取核心檔案
@@ -171,7 +174,7 @@ async function handleStaticAssetRequest(request) {
 
     // 如果是 HTML 頁面請求且失敗，回傳主頁面
     if (request.destination === 'document') {
-      const cachedIndex = await caches.match('/index.html');
+      const cachedIndex = await caches.match('index.html');
       if (cachedIndex) {
         return cachedIndex;
       }
