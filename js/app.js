@@ -16,6 +16,11 @@ function ensureI18nKeys() {
   TRANSLATIONS.en['status.sync_done'] = TRANSLATIONS.en['status.sync_done'] || '✅ Data synced';
   TRANSLATIONS.zh['status.updated'] = TRANSLATIONS.zh['status.updated'] || '📱 已更新最新數據';
   TRANSLATIONS.en['status.updated'] = TRANSLATIONS.en['status.updated'] || '📱 Updated to latest data';
+  // 額外 UI 鍵
+  TRANSLATIONS.zh['btn.show_more_days'] = TRANSLATIONS.zh['btn.show_more_days'] || '顯示更多日期';
+  TRANSLATIONS.en['btn.show_more_days'] = TRANSLATIONS.en['btn.show_more_days'] || 'Show more days';
+  TRANSLATIONS.zh['btn.show_less_days'] = TRANSLATIONS.zh['btn.show_less_days'] || '顯示較少日期';
+  TRANSLATIONS.en['btn.show_less_days'] = TRANSLATIONS.en['btn.show_less_days'] || 'Show fewer days';
 }
 
 // 綁定 Debug 區塊的捲動事件：若使用者離開底部，則暫停自動捲動
@@ -41,6 +46,8 @@ let minuteTickerInterval = null;
 let autoPlayTimeouts = new Set();
 // Debug 面板自動捲動旗標（使用者若手動往上捲則暫停自動捲動）
 let debugAutoScroll = true;
+// 是否顯示全部未來日期（預設僅 30 天）
+let showAllDates = false;
 
 // i18n 翻譯
 const TRANSLATIONS = {
@@ -192,39 +199,47 @@ function applyCourseData(data) {
   const courseTypeDays = data.CourseTypeDays || {};
   const dailyPatternBells = data.DailyPatternBells || {};
 
-  // 展開課程排程
+  // 展開「今天 ~ 未來 180 天」的鬧鐘（渲染時預設僅顯示 30 天）
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const maxDate = new Date(todayDate);
+  maxDate.setDate(maxDate.getDate() + 180);
+
   courseSchedule.forEach(schedule => {
     const courseType = schedule.courseType;
-    const startDate = new Date(schedule.startDate);
-    const patternKeys = courseTypeDays[courseType] || [];
+    const startDateStr = schedule.startDate;
+    const courseDaysKeys = courseTypeDays[courseType] || [];
+    // 若 API 未提供天數，改用 CourseTypeDays 的長度作為期數天數（舊版行為）
+    let periodLength = Number(schedule.days || schedule.length || 0);
+    if (!periodLength || periodLength < 0) {
+      periodLength = courseDaysKeys.length || 0;
+    }
+    if (!courseType || !startDateStr || periodLength <= 0) return;
 
-    if (patternKeys.length === 0) return;
+    const startDate = parseYMD(startDateStr);
+    if (!startDate) return;
 
-    // 生成 30 天的排程
-    for (let day = 0; day < 30; day++) {
-      const currentDate = new Date(startDate);
-      currentDate.setDate(startDate.getDate() + day);
+    for (let day = 0; day < periodLength; day++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + day);
+      const dateStr = formatDate(date);
 
-      const dateStr = formatDate(currentDate);
-      const patternIndex = day % patternKeys.length;
-      const patternKey = patternKeys[patternIndex];
+      const patternKey = courseDaysKeys[day];
+      if (!patternKey) continue;
 
       const bellPattern = dailyPatternBells[courseType]?.[patternKey] || [];
-
-      bellPattern.forEach(bell => {
-        if (bell.time) {
-          const bellCount = bell.count || bellConfig[bell.bellType] || 1;
-
-          alarms.push({
-            date: dateStr,
-            time: bell.time,
-            bellType: bell.bellType || '1',
-            count: bellCount,
-            courseType: courseType,
-            patternKey: patternKey
-          });
-        }
-      });
+      for (const bell of bellPattern) {
+        if (!bell.time) continue;
+        const bellCount = bell.count || bellConfig[bell.bellType] || 1;
+        alarms.push({
+          date: dateStr,
+          time: bell.time,
+          bellType: bell.bellType || '1',
+          count: bellCount,
+          courseType,
+          patternKey
+        });
+      }
     }
   });
 
@@ -252,6 +267,19 @@ function formatDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+// 將 'YYYY-MM-DD' 解析為本地時區的 Date（避免瀏覽器將字串當作 UTC 導致誤差）
+function parseYMD(ymd) {
+  if (!ymd || typeof ymd !== 'string') return null;
+  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10) - 1;
+  const day = parseInt(m[3], 10);
+  const d = new Date(year, month, day);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
 // 渲染排程界面
 function renderSchedule() {
   const container = document.getElementById('schedule-list');
@@ -273,17 +301,20 @@ function renderSchedule() {
     dateToTimes.get(a.date).add(a.time);
   });
 
-  // 僅顯示今天與未來 7 天
-  const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 7);
-  const maxDateStr = formatDate(maxDate);
+  // 僅顯示今天與未來 30 天（除非使用者要求顯示更多）
+  const limitDays = 30;
+  const maxDateDefault = new Date();
+  maxDateDefault.setDate(maxDateDefault.getDate() + limitDays);
+  const maxDateDefaultStr = formatDate(maxDateDefault);
 
   // 依日期排序後渲染
-  const allDates = Array.from(dateToTimes.keys()).sort();
-  let renderedDays = 0;
-  allDates.forEach(date => {
-    if (date < today || date > maxDateStr) return;
+  const allDatesSorted = Array.from(dateToTimes.keys()).filter(d => d >= today).sort();
+  const datesToRender = showAllDates
+    ? allDatesSorted
+    : allDatesSorted.filter(d => d <= maxDateDefaultStr);
 
+  let renderedDays = 0;
+  datesToRender.forEach(date => {
     const times = Array.from(dateToTimes.get(date)).sort((a, b) => a.localeCompare(b));
 
     const block = document.createElement('div');
@@ -294,7 +325,7 @@ function renderSchedule() {
     h.textContent = `${date}${date === today ? ' (' + t('label.today') + ')' : ''}`;
     block.appendChild(h);
 
-    // 單行時間列表（像原本簡潔版）："🔔 HH:MM, HH:MM, ..."
+    // 單行時間列表（簡潔版）："🔔 HH:MM, HH:MM, ..."
     const p = document.createElement('p');
     p.textContent = `🔔 ${times.join(', ')}`;
     block.appendChild(p);
@@ -302,6 +333,42 @@ function renderSchedule() {
     container.appendChild(block);
     renderedDays++;
   });
+
+  // 如果還有更多未來日期，加入「顯示更多」按鈕
+  const hasMore = !showAllDates && allDatesSorted.length > datesToRender.length;
+  if (hasMore) {
+    const moreDiv = document.createElement('div');
+    moreDiv.style.textAlign = 'center';
+    moreDiv.style.margin = '12px 0 0';
+
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn';
+    btn.textContent = t('btn.show_more_days');
+    btn.addEventListener('click', () => {
+      showAllDates = true;
+      renderSchedule();
+    });
+    moreDiv.appendChild(btn);
+    container.appendChild(moreDiv);
+  }
+
+  // 當已顯示全部日期時，提供「顯示較少」按鈕以折回 30 天
+  if (showAllDates && allDatesSorted.length > 0) {
+    const lessDiv = document.createElement('div');
+    lessDiv.style.textAlign = 'center';
+    lessDiv.style.margin = '12px 0 0';
+
+    const btnLess = document.createElement('button');
+    btnLess.className = 'tool-btn';
+    btnLess.textContent = t('btn.show_less_days');
+    btnLess.addEventListener('click', () => {
+      showAllDates = false;
+      renderSchedule();
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) { window.scrollTo(0,0); }
+    });
+    lessDiv.appendChild(btnLess);
+    container.appendChild(lessDiv);
+  }
 
   // 已輸出 concise 版本的渲染統計
 }
