@@ -156,6 +156,12 @@ function applyTranslations() {
   updateToolsButtonText();
 }
 
+// 裝置偵測（簡易 iOS 判斷）
+function isIOS() {
+  return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
 // 更新版本徽章：App 版本與數據版本
 function updateVersionBadges() {
   // App 版本（已在 init 時請求 SW，這裡不重複）
@@ -437,17 +443,15 @@ function checkAutoPlay() {
         appDebugLog(`Auto play triggered: ${alarm.time}, count: ${alarm.count}`, 0);
 
         if (window.AudioModule) {
-          // 若音訊尚未解鎖，記錄待播放，提示解鎖
+          // 若音訊尚未解鎖：不補播、僅提示，並視為已處理
           if (!window.AudioModule.isUnlocked) {
-            const key = alarmKey;
-            // 僅在未設置 pending 或 key 不同時才紀錄，避免重複
-            if (!pendingAutoPlay || pendingAutoPlay.key !== key) {
-              pendingAutoPlay = { count: alarm.count, key };
-            }
-            try { window.appDebugLog && window.appDebugLog('[Audio] Locked on auto; waiting for unlock...'); } catch (e) {}
+            lastAutoPlayedKey = alarmKey;
+            pendingAutoPlay = null;
+            try { window.appDebugLog && window.appDebugLog('[Audio] Locked on auto; skip replay, prompt unlock only'); } catch (e) {}
             try { window.AudioModule.ensureAudioUnlocked(); } catch (e) {}
+            try { window.AudioModule.requestUnlockPrompt && window.AudioModule.requestUnlockPrompt(); } catch (e) {}
           } else {
-            // 以 key 去重避免同分鐘多次觸發
+            // 已解鎖：以 key 去重避免同分鐘多次觸發
             if (lastAutoPlayedKey !== alarmKey) {
               lastAutoPlayedKey = alarmKey;
               window.AudioModule.playBell(alarm.count, 'auto');
@@ -484,9 +488,7 @@ function startMinuteTicker() {
   minuteTickerInterval = setInterval(() => {
     const t = new Date();
     const sec = t.getSeconds();
-
-    // 僅在每分鐘的前 0~5 秒內檢查與觸發，避免 setInterval 漂移造成錯過整點
-    if (sec > 5) return;
+    // 檢查每一秒；去重邏輯由 lastAutoPlayedKey 和 autoPlayTimeouts 保護
 
     const currentDate = formatDate(t);
     const currentTime = formatTime(t); // HH:MM
@@ -498,16 +500,12 @@ function startMinuteTicker() {
       appDebugLog(`[tick] now=${currentKey} (sec=${sec}), hasMatch=${hasMatch}`, 2);
     }
 
-    // 自動觸發（去重）
+    // 自動觸發（統一走 checkAutoPlay，以支援 iOS 解鎖提示與延後補播）
     if (window.__lastAutoFireKey !== currentKey) {
       const match = alarms.find(a => a.date === currentDate && a.time === currentTime);
       if (match) {
         window.__lastAutoFireKey = currentKey;
-        const repeat = Number(match.count || 1) || 1;
-        appDebugLog(`自動播放鐘聲: repeat=${repeat}`);
-        if (window.AudioModule) {
-          window.AudioModule.playBell(repeat, 'auto');
-        }
+        checkAutoPlay();
       }
     }
 
@@ -589,6 +587,14 @@ async function initApp() {
 
   // 綁定 Debug 捲動行為
   initDebugLogScroll();
+
+  // iOS 裝置上若音訊尚未解鎖，先主動顯示提示（避免使用者錯過）
+  try {
+    if (isIOS() && window.AudioModule && !window.AudioModule.isUnlocked) {
+      appDebugLog('[Audio] iOS detected; showing unlock banner proactively', 2);
+      window.AudioModule.requestUnlockPrompt && window.AudioModule.requestUnlockPrompt();
+    }
+  } catch (_) {}
 
   // 載入本地數據
   let hasData = false;

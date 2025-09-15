@@ -1,6 +1,6 @@
 // Service Worker - 離線功能支援
 
-const CACHE_NAME = 'bell-scheduler-v1.0.2';
+const CACHE_NAME = 'bell-scheduler-v1.0.3';
 const DATA_CACHE_NAME = 'bell-scheduler-data-v1.0.2';
 
 // 需要快取的核心檔案
