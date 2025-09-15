@@ -27,9 +27,13 @@ function ensureI18nKeys() {
 window.addEventListener('audio_unlocked', () => {
   try { window.appDebugLog && window.appDebugLog('[Audio] Unlocked; checking pending auto play...', 2); } catch (e) {}
   if (pendingAutoPlay && window.AudioModule?.isUnlocked) {
-    const { count } = pendingAutoPlay;
+    const { count, key } = pendingAutoPlay;
+    // 若目前正在播放或已針對同一 key 播放過，就不要重複
+    if (!window.AudioModule.isPlaying && lastAutoPlayedKey !== key) {
+      lastAutoPlayedKey = key;
+      try { window.AudioModule.playBell(count, 'auto'); } catch (e) {}
+    }
     pendingAutoPlay = null;
-    try { window.AudioModule.playBell(count, 'auto'); } catch (e) {}
   }
 });
 
@@ -59,7 +63,8 @@ let debugAutoScroll = true;
 // 是否顯示全部未來日期（預設僅 30 天）
 let showAllDates = false;
 // 待播放的自動敲鐘（因裝置未解鎖而延後）
-let pendingAutoPlay = null; // { count: number }
+let pendingAutoPlay = null; // { count: number, key: string }
+let lastAutoPlayedKey = '';
 
 // i18n 翻譯
 const TRANSLATIONS = {
@@ -406,11 +411,19 @@ function checkAutoPlay() {
         if (window.AudioModule) {
           // 若音訊尚未解鎖，記錄待播放，提示解鎖
           if (!window.AudioModule.isUnlocked) {
-            pendingAutoPlay = { count: alarm.count };
+            const key = alarmKey;
+            // 僅在未設置 pending 或 key 不同時才紀錄，避免重複
+            if (!pendingAutoPlay || pendingAutoPlay.key !== key) {
+              pendingAutoPlay = { count: alarm.count, key };
+            }
             try { window.appDebugLog && window.appDebugLog('[Audio] Locked on auto; waiting for unlock...'); } catch (e) {}
             try { window.AudioModule.ensureAudioUnlocked(); } catch (e) {}
           } else {
-            window.AudioModule.playBell(alarm.count, 'auto');
+            // 以 key 去重避免同分鐘多次觸發
+            if (lastAutoPlayedKey !== alarmKey) {
+              lastAutoPlayedKey = alarmKey;
+              window.AudioModule.playBell(alarm.count, 'auto');
+            }
           }
         }
 
